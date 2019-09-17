@@ -16,6 +16,10 @@ dist_cfgmgr_DATA = \
 		buffer_headroom_vs.lua \
 		buffer_pool_vs.lua
 
+if HAVE_STP
+bin_PROGRAMS += stpmgrd
+endif
+
 if DEBUG
 DBGFLAGS = -ggdb -DDEBUG
 else
@@ -86,3 +90,10 @@ macsecmgrd_SOURCES = macsecmgrd.cpp macsecmgr.cpp $(top_srcdir)/orchagent/orch.c
 macsecmgrd_CFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_SAI)
 macsecmgrd_CPPFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_SAI)
 macsecmgrd_LDADD = -lswsscommon $(SAIMETA_LIBS)
+
+if HAVE_STP
+stpmgrd_SOURCES = stpmgrd.cpp stpmgr.cpp $(top_srcdir)/orchagent/orch.cpp $(top_srcdir)/orchagent/request_parser.cpp shellcmd.h
+stpmgrd_CFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_SAI) $(COV_CFLAGS)
+stpmgrd_CPPFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_SAI) $(COV_CFLAGS)
+stpmgrd_LDADD = -lswsscommon $(SAIMETA_LIBS) $(COV_LDFLAGS)
+endif

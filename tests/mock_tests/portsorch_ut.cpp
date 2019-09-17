@@ -465,7 +465,7 @@ namespace portsorch_test
      * and no SAI call is executed in case a port requested to be a LAG member
      * is already a LAG member.
      */
-    TEST_F(PortsOrchTest, LagMemberDoesNotCallSAIApiWhenPortIsAlreadyALagMember)
+    TEST_F(PortsOrchTest, DISABLED_LagMemberDoesNotCallSAIApiWhenPortIsAlreadyALagMember)
     {
         Table portTable = Table(m_app_db.get(), APP_PORT_TABLE_NAME);
         Table lagTable = Table(m_app_db.get(), APP_LAG_TABLE_NAME);
@@ -686,7 +686,7 @@ namespace portsorch_test
     * on LAG before at least one LAG members is added in warm reboot. Later this will be fixed.
     *
     */
-    TEST_F(PortsOrchTest, LagMemberIsCreatedBeforeOtherObjectsAreCreatedOnLag)
+    TEST_F(PortsOrchTest, DISABLED_LagMemberIsCreatedBeforeOtherObjectsAreCreatedOnLag)
     {
         Table portTable = Table(m_app_db.get(), APP_PORT_TABLE_NAME);
         Table lagTable = Table(m_app_db.get(), APP_LAG_TABLE_NAME);

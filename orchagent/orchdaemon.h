@@ -36,6 +36,7 @@
 #include "mlagorch.h"
 #include "muxorch.h"
 #include "macsecorch.h"
+#include "stporch.h"
 
 using namespace swss;
 

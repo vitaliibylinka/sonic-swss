@@ -42,6 +42,7 @@ NatOrch *gNatOrch;
 MlagOrch *gMlagOrch;
 IsoGrpOrch *gIsoGrpOrch;
 MACsecOrch *gMacsecOrch;
+StpOrch *gStpOrch;
 
 bool gIsNatSupported = false;
 
@@ -112,9 +113,17 @@ bool OrchDaemon::init()
 
     gCrmOrch = new CrmOrch(m_configDb, CFG_CRM_TABLE_NAME);
     gPortsOrch = new PortsOrch(m_applDb, m_stateDb, ports_tables, m_chassisAppDb);
+    TableConnector applDbFdb(m_applDb, APP_FDB_TABLE_NAME);
     TableConnector stateDbFdb(m_stateDb, STATE_FDB_TABLE_NAME);
     TableConnector stateMclagDbFdb(m_stateDb, STATE_MCLAG_REMOTE_FDB_TABLE_NAME);
     gFdbOrch = new FdbOrch(m_applDb, app_fdb_tables, stateDbFdb, stateMclagDbFdb, gPortsOrch);
+
+    vector<string> stp_tables = {
+            APP_STP_VLAN_INSTANCE_TABLE_NAME,
+            APP_STP_PORT_STATE_TABLE_NAME,
+            APP_STP_FASTAGEING_FLUSH_TABLE_NAME
+    };
+    gStpOrch = new StpOrch(m_applDb, m_stateDb, stp_tables);
 
     vector<string> vnet_tables = {
             APP_VNET_RT_TABLE_NAME,
@@ -243,14 +252,11 @@ bool OrchDaemon::init()
             APP_SFLOW_SESSION_TABLE_NAME,
             APP_SFLOW_SAMPLE_RATE_TABLE_NAME
     };
-    SflowOrch *sflow_orch = new SflowOrch(m_applDb,  sflow_tables);
 
     vector<string> debug_counter_tables = {
         CFG_DEBUG_COUNTER_TABLE_NAME,
         CFG_DEBUG_COUNTER_DROP_REASON_TABLE_NAME
     };
-
-    DebugCounterOrch *debug_counter_orch = new DebugCounterOrch(m_configDb, debug_counter_tables, 1000);
 
     const int natorch_base_pri = 50;
 
@@ -296,7 +302,8 @@ bool OrchDaemon::init()
      * when iterating ConsumerMap. This is ensured implicitly by the order of keys in ordered map.
      * For cases when Orch has to process tables in specific order, like PortsOrch during warm start, it has to override Orch::doTask()
      */
-    m_orchList = { gSwitchOrch, gCrmOrch, gPortsOrch, gBufferOrch, gIntfsOrch, gNeighOrch, gRouteOrch, copp_orch, qos_orch, wm_orch, policer_orch, tunnel_decap_orch, sflow_orch, debug_counter_orch, gMacsecOrch};
+    m_orchList = { gSwitchOrch, gCrmOrch, gBufferOrch, gPortsOrch, gIntfsOrch, gNeighOrch, gRouteOrch, copp_orch, tunnel_decap_orch, qos_orch, wm_orch, policer_orch, gStpOrch };
+
 
     bool initialize_dtel = false;
     if (platform == BFN_PLATFORM_SUBSTRING || platform == VS_PLATFORM_SUBSTRING)

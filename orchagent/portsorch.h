@@ -96,6 +96,7 @@ public:
     void getCpuPort(Port &port);
     bool getInbandPort(Port &port);
     bool getVlanByVlanId(sai_vlan_id_t vlan_id, Port &vlan);
+    bool getAclBindPortId(string alias, sai_object_id_t &port_id);
 
     bool setHostIntfsOperStatus(const Port& port, bool up) const;
     void updateDbPortOperStatus(const Port& port, sai_port_oper_status_t status) const;
@@ -222,7 +223,6 @@ private:
 
     NotificationConsumer* m_portStatusNotificationConsumer;
 
-    void doTask() override;
     void doTask(Consumer &consumer);
     void doPortTask(Consumer &consumer);
     void doVlanTask(Consumer &consumer);
@@ -312,10 +312,6 @@ private:
     bool getPortInterfaceTypeVal(const std::string &s, sai_port_interface_type_t &interface_type);
     bool getPortAdvInterfaceTypesVal(const std::string &s, std::vector<uint32_t> &type_values);
 
-    bool setPortSerdesAttribute(sai_object_id_t port_id,
-                                std::map<sai_port_serdes_attr_t, std::vector<uint32_t>> &serdes_attr);
-
-
     void removePortSerdesAttribute(sai_object_id_t port_id);
 
     bool getSaiAclBindPointType(Port::Type                type,
@@ -339,6 +335,9 @@ private:
     unique_ptr<LagIdAllocator> m_lagIdAllocator;
 
     std::unordered_set<std::string> generateCounterStats(const string& type);
+
+    bool setPortSerdesAttribute(sai_object_id_t port_id, sai_attr_id_t attr_id,
+                                vector<uint32_t> &serdes_val);
 
 };
 #endif /* SWSS_PORTSORCH_H */

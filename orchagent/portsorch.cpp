@@ -5,6 +5,7 @@
 #include "gearboxutils.h"
 #include "vxlanorch.h"
 #include "directory.h"
+#include "stporch.h"
 
 #include <inttypes.h>
 #include <cassert>
@@ -42,6 +43,8 @@ extern sai_acl_api_t* sai_acl_api;
 extern sai_queue_api_t *sai_queue_api;
 extern sai_object_id_t gSwitchId;
 extern sai_fdb_api_t *sai_fdb_api;
+extern sai_stp_api_t *sai_stp_api;
+
 extern IntfsOrch *gIntfsOrch;
 extern NeighOrch *gNeighOrch;
 extern CrmOrch *gCrmOrch;
@@ -53,8 +56,10 @@ extern string gMySwitchType;
 extern int32_t gVoqMySwitchId;
 extern string gMyHostName;
 extern string gMyAsicName;
+extern StpOrch *gStpOrch;
 
 #define DEFAULT_SYSTEM_PORT_MTU 9100
+
 #define VLAN_PREFIX         "Vlan"
 #define DEFAULT_VLAN_ID     1
 #define MAX_VALID_VLAN_ID   4094
@@ -3180,7 +3185,7 @@ void PortsOrch::doPortTask(Consumer &consumer)
                         continue;
                     }
                 }
-
+/*
                 if (serdes_attr.size() != 0)
                 {
                     if (setPortSerdesAttribute(p.m_port_id, serdes_attr))
@@ -3195,7 +3200,7 @@ void PortsOrch::doPortTask(Consumer &consumer)
                     }
 
                 }
-
+*/
                 /* Last step set port admin status */
                 if (!admin_status.empty() && (p.m_admin_state_up != (admin_status == "up")))
                 {
@@ -3868,34 +3873,6 @@ void PortsOrch::doLagMemberTask(Consumer &consumer)
     }
 }
 
-void PortsOrch::doTask()
-{
-    auto tableOrder = {
-        APP_PORT_TABLE_NAME,
-        APP_LAG_TABLE_NAME,
-        APP_LAG_MEMBER_TABLE_NAME,
-        APP_VLAN_TABLE_NAME,
-        APP_VLAN_MEMBER_TABLE_NAME,
-    };
-
-    for (auto tableName: tableOrder)
-    {
-        auto consumer = getExecutor(tableName);
-        consumer->drain();
-    }
-
-    // drain remaining tables
-    for (auto& it: m_consumerMap)
-    {
-        auto tableName = it.first;
-        auto consumer = it.second.get();
-        if (find(tableOrder.begin(), tableOrder.end(), tableName) == tableOrder.end())
-        {
-            consumer->drain();
-        }
-    }
-}
-
 void PortsOrch::doTask(Consumer &consumer)
 {
     SWSS_LOG_ENTER();
@@ -3930,6 +3907,7 @@ void PortsOrch::doTask(Consumer &consumer)
         {
             doLagMemberTask(consumer);
         }
+        gStpOrch->doTask(consumer);
     }
 }
 
@@ -4310,9 +4288,12 @@ bool PortsOrch::removeBridgePort(Port &port)
         return false;
     }
 
-    //Flush the FDB entires corresponding to the port
-    gFdbOrch->flushFDBEntries(port.m_bridge_port_id, SAI_NULL_OBJECT_ID);
-    SWSS_LOG_INFO("Flush FDB entries for port %s", port.m_alias.c_str());
+    /* Remove STP ports before bridge port deletion*/
+    gStpOrch->removeStpPorts(port);
+
+    /* Flush FDB entries pointing to this bridge port */
+    // TODO: Remove all FDB entries associated with this bridge port before
+    //       removing the bridge port itself
 
     /* Remove bridge port */
     status = sai_bridge_api->remove_bridge_port(port.m_bridge_port_id);
@@ -4427,6 +4408,12 @@ bool PortsOrch::removeVlan(Port vlan)
     {
         SWSS_LOG_ERROR("Failed to remove non-empty VLAN %s", vlan.m_alias.c_str());
         return false;
+    }
+    
+    /* If STP instance is associated with VLAN remove VLAN from STP before deletion */
+    if(vlan.m_stp_id != -1)
+    {
+        gStpOrch->removeVlanFromStpInstance(vlan.m_alias, 0);
     }
 
     // Fail VLAN removal if there is a vnid associated
@@ -5514,8 +5501,8 @@ bool PortsOrch::removeAclTableGroup(const Port &p)
     return true;
 }
 
-bool PortsOrch::setPortSerdesAttribute(sai_object_id_t port_id,
-                                       map<sai_port_serdes_attr_t, vector<uint32_t>> &serdes_attr)
+bool PortsOrch::setPortSerdesAttribute(sai_object_id_t port_id, sai_attr_id_t attr_id,
+                                       vector<uint32_t> &serdes_val)
 {
     SWSS_LOG_ENTER();
 
@@ -5558,18 +5545,19 @@ bool PortsOrch::setPortSerdesAttribute(sai_object_id_t port_id,
     port_serdes_attr.value.oid = port_id;
     attr_list.emplace_back(port_serdes_attr);
     SWSS_LOG_INFO("Creating serdes for port 0x%" PRIx64, port_id);
-
-    for (auto it = serdes_attr.begin(); it != serdes_attr.end(); it++)
+/*
+    for (auto it = port_serdes_attr.begin(); it != port_serdes_attr.end(); it++)
     {
         port_serdes_attr.id = it->first;
         port_serdes_attr.value.u32list.count = (uint32_t)it->second.size();
         port_serdes_attr.value.u32list.list = it->second.data();
         attr_list.emplace_back(port_serdes_attr);
     }
+    
     status = sai_port_api->create_port_serdes(&port_serdes_id, gSwitchId,
-                                              static_cast<uint32_t>(serdes_attr.size()+1),
+                                              static_cast<uint32_t>(port_serdes_attr.size()+1),
                                               attr_list.data());
-
+*/
     if (status != SAI_STATUS_SUCCESS)
     {
         SWSS_LOG_ERROR("Failed to create port serdes for port 0x%" PRIx64,
